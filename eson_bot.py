@@ -60,7 +60,7 @@ def dns_solve(client, message):
 
 @app.on_message(filters.text & filters.command("echo"))
 def auto_echo(client, message):
-    reply = message.reply_text("".join(message.command[1:]))
+    reply = message.reply_text(" ".join(message.command[1:]))
     threading.Thread(target=auto_delete, args=(reply,)).start()
 
 
@@ -70,7 +70,7 @@ def eval(client, message):
     # if the command came from the current user the bot
     # is running as
     if message.from_user["id"] == app.get_me().id:
-        result = eval("".join(message.command[1:]))
+        result = eval(" ".join(message.command[1:]))
 
     # unauthorized third-party
     else:
