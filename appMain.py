@@ -1,94 +1,104 @@
-# coding=utf-8
-from pyrogram import Client,filters
-import time
-import dns.resolver as dns
-import _thread as thread
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# built-in imports
 from subprocess import PIPE, Popen
+import contextlib
+import threading
+import time
 
-def auto_del(back):
+# third-party imports
+from loguru import logger
+from pyrogram import Client, filters
+import dns.resolver
+
+
+# initialize pyrogram client
+app = Client("EsonhughAgent")
+
+
+def auto_delete(message):
     time.sleep(8)
-    app.delete_messages(back.chat.id, back.message_id)
+    app.delete_messages(message.chat.id, message.message_id)
 
-app = Client( "EsonhughAgent" )
 
-'''
 # hot reload / refresh handler? Unknown bugs
 @app.on_message(filters.text & filters.command("reload"))
-def reload(client,message):
-    me = app.get_me()
-    if message.from_user["id"] == me.id:
-        res = "Ok."
-    else: 
-        res = "Invalid User."
-    backmsg = message.reply_text(res)
-    if res == "Ok." :
+def reload(client, message):
+    if message.from_user["id"] == app.get_me().id:
+        message.reply_text("Ok.")
         app.restart(block=False)
-'''
+    else:
+        message.reply_text("Invalid User.")
 
-# dig command 
+
+# dig command
 @app.on_message(filters.text & filters.command("dig"))
-def dns_solve(client,message):
-    # prepare 
-    cmd_praser = message.command[1:]
-    print(cmd_praser)
-    # execute
+def dns_solve(client, message):
+
     try:
-        domain_or_IP = cmd_praser[0]
-        type = cmd_praser[1]
-        answer = dns.query(domain_or_IP, type)
-        print(answer)
-        back = "result from nameserver: {} \n" \
-               "==================================\n".format(answer.nameserver)
-        print(answer.response.answer == "")
-        for ans in answer.response.answer:
-            back += str(ans) + "\n"
-        back +="=================================="
-    except :
-        back = "command usage: /dig {domain/ip} {type}"
-    # send back
-    backmsg = message.reply_text(back)
+        hostname = message.command[1]
+        record_type = message.command[2]
+
+        answer = dns.resolver.query(hostname, record_type)
+        response = ["Lookup results from {}".format(answer.nameserver)]
+
+        for answer in answer.response.answer:
+            response.append(answer.to_text())
+
+    # more dns.resolver errors can be caught here
+    except dns.resolver.NXDOMAIN:
+        response = ["NXDOMAIN"]
+
+    # this also includes IndexError
+    except Exception:
+        response = ["command usage: /dig {hostname} {record_type}"]
+
+    # converge list into a single string
+    response = "\n".join(response)
+    message.reply_text(response)
 
 
-# echo func
 @app.on_message(filters.text & filters.command("echo"))
 def auto_echo(client, message):
-    # prepare
-    cmd_praser = message.command[1:] 
-    user_text = "".join(cmd_praser)
-    # send back
-    backmsg = message.reply_text( user_text )
-    thread.start_new_thread(auto_del,(backmsg,))
+    reply = message.reply_text("".join(message.command[1:]))
+    threading.Thread(target=auto_delete, args=(reply,)).start()
 
-# eval backdoor?
+
 @app.on_message(filters.text & filters.command("eval"))
-def evil_eval(client, message):
-    # prepare
-    cmd_praser = message.command[1:]
-    me = app.get_me()
-    # execute
-    if  message.from_user["id"] == me.id :
-        python_cmd = "".join(cmd_praser)
-        python_res = eval(python_cmd)
-    else : 
-        python_res = "Invalid User."
-    # send back
-    backmsg = message.reply_text(python_res)
-    thread.start_new_thread(auto_del,(backmsg,))
+def eval(client, message):
+
+    # if the command came from the current user the bot
+    # is running as
+    if message.from_user["id"] == app.get_me().id:
+        result = eval("".join(message.command[1:]))
+
+    # unauthorized third-party
+    else:
+        result = "Invalid User."
+
+    reply = message.reply_text(result)
+    threading.Thread(target=auto_delete, args=(reply,)).start()
 
 
-# ping test 
 @app.on_message(filters.text & filters.command("ping"))
 def ping_test(client, message):
-    # prepare
-    cmd_praser = message.command[1:]
-    cmd = ["ping","".join(cmd_praser),"-c","2"] # subprocess run with list will avoid the command injection
-    # execute
-    ret = Popen(cmd , stdout=PIPE, stderr=PIPE)
-    back = "command usage: /ping {ip or domain} "
-    if ret.stderr.read() == b'':
-        back = ret.stdout.read().decode()
-    # send back
-    backmsg = message.reply_text(back)
-    thread.start_new_thread(auto_del,(backmsg,))
+    response = "command usage: /ping {hostname} "
 
-app.run()
+    with contextlib.suppress(IndexError):
+        command = [
+            "ping",
+            message.command[1],
+            "-c",
+            "2",
+        ]
+
+        process = Popen(command, stdout=PIPE, stderr=PIPE)
+        response = process.stdout.read().decode()
+
+    reply = message.reply_text(response)
+    threading.Thread(target=auto_delete, args=(reply,)).start()
+
+
+if __name__ == "__main__":
+    app.run()
