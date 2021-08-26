@@ -86,7 +86,7 @@ def ping_test(client, message):
 
     with contextlib.suppress(IndexError):
         command = [
-            "ping",
+            "/usr/bin/ping",
             message.command[1],
             "-c",
             "2",
