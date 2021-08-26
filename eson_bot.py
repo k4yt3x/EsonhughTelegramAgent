@@ -8,7 +8,6 @@ import threading
 import time
 
 # third-party imports
-from loguru import logger
 from pyrogram import Client, filters
 import dns.resolver
 

@@ -1,5 +1,3 @@
-pyrogram
 dnspython
+pyrogram
 tgCrypto
-thread
-time
