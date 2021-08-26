@@ -85,7 +85,7 @@ def ping_test(client, message):
     # execute
     ret = Popen(cmd , stdout=PIPE, stderr=PIPE)
     back = "command usage: /ping {ip or domain} "
-    if ret.stderr.read() != b'':
+    if ret.stderr.read() == b'':
         back = ret.stdout.read().decode()
     # send back
     backmsg = message.reply_text(back)
